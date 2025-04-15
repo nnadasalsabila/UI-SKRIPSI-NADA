@@ -1,1 +1,23 @@
-
+streamlit
+pandas
+numpy
+scipy.stats
+statsmodels.api
+matplotlib.pyplot
+from sklearn.model_selection
+train_test_split
+from statsmodels.tsa.stattools
+adfuller
+from statsmodels.graphics.tsaplots
+plot_acf, plot_pacf
+from scipy.stats
+t
+from statsmodels.tsa.arima.model
+ARIMA
+from statsmodels.stats.diagnostic
+acorr_ljungbox, het_arch
+from scipy.stats
+shapiro, probplot
+from sklearn.metrics
+root_mean_squared_error
+mean_absolute_percentage_error
