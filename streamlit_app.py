@@ -18,7 +18,7 @@ uploaded_file = st.sidebar.file_uploader("Upload file CSV", type=["csv"])
 
 # Main logic
 if uploaded_file:
-    df = pd.read_csv(uploaded_file, parse_dates=['tanggal'])
+    df = pd.read_excel(uploaded_file, parse_dates=['tanggal'])
     df = df.sort_values('tanggal')
     df.set_index('tanggal', inplace=True)
 
