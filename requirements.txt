@@ -1,8 +1,8 @@
-import pandas as pd
-import numpy as np
-import scipy.stats as stats
-import statsmodels.api as sm
-import matplotlib.pyplot as plt
+pandas as pd
+numpy as np
+scipy.stats as stats
+statsmodels.api as sm
+matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
