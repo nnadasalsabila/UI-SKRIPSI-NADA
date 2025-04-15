@@ -1,151 +1,69 @@
 import streamlit as st
 import pandas as pd
-import math
-from pathlib import Path
+import matplotlib.pyplot as plt
+import seaborn as sns
+from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
+from sklearn.metrics import mean_absolute_percentage_error
+import datetime
 
-# Set the title and favicon that appear in the Browser's tab bar.
-st.set_page_config(
-    page_title='GDP dashboard',
-    page_icon=':earth_americas:', # This is an emoji shortcode. Could be a URL too.
-)
+st.set_page_config(layout="wide", page_title="Dashboard Prediksi Harga Cabai di Jawa Timur")
 
-# -----------------------------------------------------------------------------
-# Declare some useful functions.
+st.title("🌶️ Dashboard Prediksi Harga Komoditas Cabai di Jawa Timur")
+st.markdown("Model: **ARIMA** vs **ARIMAX** | Komoditas: Cabai Rawit, Cabai Keriting, Cabai Merah Besar")
 
-@st.cache_data
-def get_gdp_data():
-    """Grab GDP data from a CSV file.
+# Sidebar
+st.sidebar.header("📁 Upload Dataset")
+uploaded_file = st.sidebar.file_uploader("Upload file CSV", type=["csv"])
 
-    This uses caching to avoid having to read the file every time. If we were
-    reading from an HTTP endpoint instead of a file, it's a good idea to set
-    a maximum age to the cache with the TTL argument: @st.cache_data(ttl='1d')
-    """
+# Main logic
+if uploaded_file:
+    df = pd.read_csv(uploaded_file, parse_dates=['tanggal'])
+    df = df.sort_values('tanggal')
+    df.set_index('tanggal', inplace=True)
 
-    # Instead of a CSV on disk, you could read from an HTTP endpoint here too.
-    DATA_FILENAME = Path(__file__).parent/'data/gdp_data.csv'
-    raw_gdp_df = pd.read_csv(DATA_FILENAME)
+    st.subheader("📊 Visualisasi Dataset")
+    komoditas = st.selectbox("Pilih Komoditas", ['cabai_rawit', 'cabai_keriting', 'cabai_merah_besar'])
+    st.line_chart(df[komoditas])
 
-    MIN_YEAR = 1960
-    MAX_YEAR = 2022
+    st.subheader("⚙️ Pemodelan dan Evaluasi (ARIMA vs ARIMAX)")
 
-    # The data above has columns like:
-    # - Country Name
-    # - Country Code
-    # - [Stuff I don't care about]
-    # - GDP for 1960
-    # - GDP for 1961
-    # - GDP for 1962
-    # - ...
-    # - GDP for 2022
-    #
-    # ...but I want this instead:
-    # - Country Name
-    # - Country Code
-    # - Year
-    # - GDP
-    #
-    # So let's pivot all those year-columns into two: Year and GDP
-    gdp_df = raw_gdp_df.melt(
-        ['Country Code'],
-        [str(x) for x in range(MIN_YEAR, MAX_YEAR + 1)],
-        'Year',
-        'GDP',
-    )
+    # Dummy ARIMA dan ARIMAX (ganti dengan parameter terbaikmu)
+    train = df[komoditas].iloc[:-30]
+    test = df[komoditas].iloc[-30:]
 
-    # Convert years from string to integers
-    gdp_df['Year'] = pd.to_numeric(gdp_df['Year'])
+    # ARIMA
+    model_arima = ARIMA(train, order=(1, 1, 1)).fit()
+    pred_arima = model_arima.forecast(steps=30)
+    mape_arima = mean_absolute_percentage_error(test, pred_arima) * 100
 
-    return gdp_df
+    # ARIMAX dengan dummy variabel tanggal (contoh: hari besar dummy)
+    df['hari_besar'] = df.index.dayofweek == 6  # Misal minggu dianggap hari besar
+    exog_train = df['hari_besar'].iloc[:-30]
+    exog_test = df['hari_besar'].iloc[-30:]
 
-gdp_df = get_gdp_data()
+    model_arimax = SARIMAX(train, order=(1,1,1), exog=exog_train).fit()
+    pred_arimax = model_arimax.predict(start=len(train), end=len(train)+29, exog=exog_test)
+    mape_arimax = mean_absolute_percentage_error(test, pred_arimax) * 100
 
-# -----------------------------------------------------------------------------
-# Draw the actual page
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("MAPE ARIMA (%)", f"{mape_arima:.2f}")
+    with col2:
+        st.metric("MAPE ARIMAX (%)", f"{mape_arimax:.2f}")
 
-# Set the title that appears at the top of the page.
-'''
-# :earth_americas: GDP dashboard
+    st.subheader("📈 Visualisasi Hasil Prediksi")
 
-Browse GDP data from the [World Bank Open Data](https://data.worldbank.org/) website. As you'll
-notice, the data only goes to 2022 right now, and datapoints for certain years are often missing.
-But it's otherwise a great (and did I mention _free_?) source of data.
-'''
+    fig, ax = plt.subplots(figsize=(12, 5))
+    ax.plot(test.index, test.values, label="Aktual", color='black')
+    ax.plot(test.index, pred_arima, label="Prediksi ARIMA", linestyle='--')
+    ax.plot(test.index, pred_arimax, label="Prediksi ARIMAX", linestyle='--')
+    ax.set_title(f"Hasil Prediksi Harga - {komoditas.replace('_', ' ').title()}")
+    ax.set_ylabel("Harga")
+    ax.set_xlabel("Tanggal")
+    ax.legend()
+    st.pyplot(fig)
 
-# Add some spacing
-''
-''
+else:
+    st.info("Silakan upload dataset CSV terlebih dahulu. Dataset harus memiliki kolom 'tanggal' dan komoditas (cabai_rawit, cabai_keriting, cabai_merah_besar).")
 
-min_value = gdp_df['Year'].min()
-max_value = gdp_df['Year'].max()
-
-from_year, to_year = st.slider(
-    'Which years are you interested in?',
-    min_value=min_value,
-    max_value=max_value,
-    value=[min_value, max_value])
-
-countries = gdp_df['Country Code'].unique()
-
-if not len(countries):
-    st.warning("Select at least one country")
-
-selected_countries = st.multiselect(
-    'Which countries would you like to view?',
-    countries,
-    ['DEU', 'FRA', 'GBR', 'BRA', 'MEX', 'JPN'])
-
-''
-''
-''
-
-# Filter the data
-filtered_gdp_df = gdp_df[
-    (gdp_df['Country Code'].isin(selected_countries))
-    & (gdp_df['Year'] <= to_year)
-    & (from_year <= gdp_df['Year'])
-]
-
-st.header('GDP over time', divider='gray')
-
-''
-
-st.line_chart(
-    filtered_gdp_df,
-    x='Year',
-    y='GDP',
-    color='Country Code',
-)
-
-''
-''
-
-
-first_year = gdp_df[gdp_df['Year'] == from_year]
-last_year = gdp_df[gdp_df['Year'] == to_year]
-
-st.header(f'GDP in {to_year}', divider='gray')
-
-''
-
-cols = st.columns(4)
-
-for i, country in enumerate(selected_countries):
-    col = cols[i % len(cols)]
-
-    with col:
-        first_gdp = first_year[first_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-        last_gdp = last_year[last_year['Country Code'] == country]['GDP'].iat[0] / 1000000000
-
-        if math.isnan(first_gdp):
-            growth = 'n/a'
-            delta_color = 'off'
-        else:
-            growth = f'{last_gdp / first_gdp:,.2f}x'
-            delta_color = 'normal'
-
-        st.metric(
-            label=f'{country} GDP',
-            value=f'{last_gdp:,.0f}B',
-            delta=growth,
-            delta_color=delta_color
-        )
