@@ -1,15 +1,8 @@
 streamlit
+streamlit
 pandas
 numpy
-scipy.stats
-statsmodels.api
-matplotlib.pyplot
-train_test_split
-adfuller
-plot_acf, plot_pacf
-t
-ARIMA
-acorr_ljungbox, het_arch
-shapiro, probplot
-root_mean_squared_error
-mean_absolute_percentage_error
+scipy
+statsmodels
+matplotlib
+scikit-learn
