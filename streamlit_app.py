@@ -14,7 +14,7 @@ st.markdown("Model: **ARIMA** vs **ARIMAX** | Komoditas: Cabai Rawit, Cabai Keri
 
 # Sidebar
 st.sidebar.header("📁 Upload Dataset")
-uploaded_file = st.sidebar.file_uploader("Upload file CSV", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload file Excel", type=["excel"])
 
 # Main logic
 if uploaded_file:
