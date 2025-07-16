@@ -7,3 +7,4 @@ statsmodels
 matplotlib
 scikit-learn
 seaborn
+openpyxl
