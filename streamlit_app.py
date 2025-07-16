@@ -10,16 +10,16 @@ import datetime
 st.set_page_config(layout="wide", page_title="Dashboard Prediksi Harga Cabai di Jawa Timur")
 
 st.title("🌶️ Dashboard Prediksi Harga Komoditas Cabai di Jawa Timur")
-st.markdown("Model: **ARIMA** vs **ARIMAX** | Komoditas: Cabai Rawit, Cabai Keriting, Cabai Merah Besar")
+st.markdown("Model: ARIMAX** | Komoditas: Cabai Rawit, Cabai Keriting, Cabai Merah Besar")
 
 # Sidebar
 st.sidebar.header("📁 Upload Dataset")
 uploaded_file = st.sidebar.file_uploader("Upload file Excel", type=["xlsx"])
 
 if uploaded_file:
-    df = pd.read_excel(uploaded_file, parse_dates=['tanggal'])
-    df = df.sort_values('tanggal')
-    df.set_index('tanggal', inplace=True)
+    df = pd.read_excel(uploaded_file, parse_dates=['Tanggal'])
+    df = df.sort_values('Tanggal')
+    df.set_index('Tanggal', inplace=True)
 
     st.subheader("📊 Visualisasi Dataset")
     komoditas = st.selectbox("Pilih Komoditas", ['cabai_rawit', 'cabai_keriting', 'cabai_merah_besar'])
