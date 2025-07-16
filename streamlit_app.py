@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
+from statsmodels.tsa.arima.model import ARIMA
 from sklearn.metrics import mean_absolute_percentage_error
 import datetime
 
@@ -14,9 +14,8 @@ st.markdown("Model: **ARIMA** vs **ARIMAX** | Komoditas: Cabai Rawit, Cabai Keri
 
 # Sidebar
 st.sidebar.header("📁 Upload Dataset")
-uploaded_file = st.sidebar.file_uploader("Upload file CSV", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload file Excel", type=["xlsx"])
 
-# Main logic
 if uploaded_file:
     df = pd.read_excel(uploaded_file, parse_dates=['tanggal'])
     df = df.sort_values('tanggal')
@@ -26,43 +25,72 @@ if uploaded_file:
     komoditas = st.selectbox("Pilih Komoditas", ['cabai_rawit', 'cabai_keriting', 'cabai_merah_besar'])
     st.line_chart(df[komoditas])
 
-    st.subheader("⚙️ Pemodelan dan Evaluasi (ARIMA vs ARIMAX)")
+    st.subheader("⚙️ Pemodelan ARIMAX Otomatis Berdasarkan Signifikansi")
 
-    # Dummy ARIMA dan ARIMAX (ganti dengan parameter terbaikmu)
-    train = df[komoditas].iloc[:-30]
-    test = df[komoditas].iloc[-30:]
+    # Feature dummy hari besar (misalnya hari Minggu dianggap hari besar)
+    df['hari_besar'] = df.index.dayofweek == 6
 
-    # ARIMA
-    model_arima = ARIMA(train, order=(1, 1, 1)).fit()
-    pred_arima = model_arima.forecast(steps=30)
-    mape_arima = mean_absolute_percentage_error(test, pred_arima) * 100
+    # Split train-test
+    y = df[komoditas]
+    x = df[['hari_besar']]
 
-    # ARIMAX dengan dummy variabel tanggal (contoh: hari besar dummy)
-    df['hari_besar'] = df.index.dayofweek == 6  # Misal minggu dianggap hari besar
-    exog_train = df['hari_besar'].iloc[:-30]
-    exog_test = df['hari_besar'].iloc[-30:]
+    y_train = y[:-30]
+    y_test = y[-30:]
+    x_train = x[:-30]
+    x_test = x[-30:]
 
-    model_arimax = SARIMAX(train, order=(1,1,1), exog=exog_train).fit()
-    pred_arimax = model_arimax.predict(start=len(train), end=len(train)+29, exog=exog_test)
-    mape_arimax = mean_absolute_percentage_error(test, pred_arimax) * 100
+    # Range parameter orde
+    p_values = range(0, 5)
+    d_values = range(1, 2)
+    q_values = range(0, 8)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.metric("MAPE ARIMA (%)", f"{mape_arima:.2f}")
-    with col2:
-        st.metric("MAPE ARIMAX (%)", f"{mape_arimax:.2f}")
+    results = []
 
-    st.subheader("📈 Visualisasi Hasil Prediksi")
+    for p in p_values:
+        for d in d_values:
+            for q in q_values:
+                try:
+                    model = SARIMAX(y_train, order=(p, d, q), exog=x_train)
+                    model_fit = model.fit(disp=False)
+                    pvalues = model_fit.pvalues
 
-    fig, ax = plt.subplots(figsize=(12, 5))
-    ax.plot(test.index, test.values, label="Aktual", color='black')
-    ax.plot(test.index, pred_arima, label="Prediksi ARIMA", linestyle='--')
-    ax.plot(test.index, pred_arimax, label="Prediksi ARIMAX", linestyle='--')
-    ax.set_title(f"Hasil Prediksi Harga - {komoditas.replace('_', ' ').title()}")
-    ax.set_ylabel("Harga")
-    ax.set_xlabel("Tanggal")
-    ax.legend()
-    st.pyplot(fig)
+                    if all(pvalues < 0.05):
+                        results.append({
+                            'Order (p,d,q)': (p, d, q),
+                            'AIC': model_fit.aic,
+                            'p-values': pvalues.to_dict(),
+                            'model_fit': model_fit
+                        })
+                        st.write(f"Order ({p},{d},{q}) - SIGNIFICANT")
+                    else:
+                        st.write(f"Order ({p},{d},{q}) - NOT SIGNIFICANT")
+
+                except Exception as e:
+                    st.warning(f"Error on order ({p},{d},{q}): {e}")
+                    continue
+
+    if results:
+        signif_df = pd.DataFrame(results)
+        best_model = min(results, key=lambda x: x['AIC'])
+        best_fit = best_model['model_fit']
+
+        # Forecast
+        pred_arimax = best_fit.predict(start=len(y_train), end=len(y_train)+29, exog=x_test)
+        mape_arimax = mean_absolute_percentage_error(y_test, pred_arimax) * 100
+
+        st.metric("MAPE ARIMAX Terbaik (%)", f"{mape_arimax:.2f}")
+
+        st.subheader("📈 Visualisasi Hasil Prediksi ARIMAX Terbaik")
+        fig, ax = plt.subplots(figsize=(12, 5))
+        ax.plot(y_test.index, y_test.values, label="Aktual", color='black')
+        ax.plot(y_test.index, pred_arimax, label="Prediksi ARIMAX", linestyle='--')
+        ax.set_title(f"Prediksi ARIMAX Terbaik - {komoditas.replace('_', ' ').title()}")
+        ax.set_ylabel("Harga")
+        ax.set_xlabel("Tanggal")
+        ax.legend()
+        st.pyplot(fig)
+    else:
+        st.error("Tidak ada model ARIMAX yang signifikan pada kombinasi parameter ini.")
 
 else:
-    st.info("Silakan upload dataset CSV terlebih dahulu. Dataset harus memiliki kolom 'tanggal' dan komoditas (cabai_rawit, cabai_keriting, cabai_merah_besar).")
+    st.info("Silakan upload dataset Excel (.xlsx) terlebih dahulu. Dataset harus memiliki kolom 'tanggal' dan komoditas (cabai_rawit, cabai_keriting, cabai_merah_besar).")
